@@ -1,0 +1,8 @@
+.DS_Store
+._*
+*.o
+*.out
+*.dSYM/
+*.txt
+labwork_1/parent
+labwork_1/child
