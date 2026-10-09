@@ -8,7 +8,6 @@
 
 static char SERVER_PROGRAM_NAME[] = "child";
 
-// NOTE: Custom string length function to avoid banned string headers
 static uint32_t str_length(const char *s) {
 	uint32_t len = 0;
 	while (s[len] != '\0') {
@@ -17,7 +16,6 @@ static uint32_t str_length(const char *s) {
 	return len;
 }
 
-// NOTE: Write all bytes from buffer to target file descriptor
 static void write_all(int32_t fd, const char *buf, size_t size) {
 	size_t written = 0;
 	while (written < size) {
@@ -29,7 +27,6 @@ static void write_all(int32_t fd, const char *buf, size_t size) {
 	}
 }
 
-// NOTE: Read single line from file descriptor (ending with '\n' or EOF)
 static ssize_t read_line(int32_t fd, char *buf, size_t max_size) {
 	size_t idx = 0;
 	char ch;
@@ -56,7 +53,6 @@ static ssize_t read_line(int32_t fd, char *buf, size_t max_size) {
 int main(int argc, char **argv) {
 	char filename[1024];
 
-	// NOTE: Get target filename from argv or first line of stdin
 	if (argc > 1) {
 		uint32_t i = 0;
 		while (argv[1][i] != '\0' && i < sizeof(filename) - 1) {
@@ -76,12 +72,10 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// NOTE: Get full path to the directory, where program resides
 	char progpath[1024];
 	{
 		ssize_t len = readlink("/proc/self/exe", progpath, sizeof(progpath) - 1);
 		if (len <= 0) {
-			// NOTE: macOS fallback (on macOS /proc doesn't exist)
 			progpath[0] = '.';
 			progpath[1] = '\0';
 		} else {
@@ -93,21 +87,20 @@ int main(int argc, char **argv) {
 	}
 
 	// NOTE: Open pipes
-	int client_to_server[2]; // AB: parent -> child
+	int client_to_server[2];
 	if (pipe(client_to_server) == -1) {
 		const char msg[] = "error: failed to create pipe\n";
 		write_all(STDERR_FILENO, msg, sizeof(msg) - 1);
 		exit(EXIT_FAILURE);
 	}
 
-	int server_to_client[2]; // BA: child -> parent
+	int server_to_client[2];
 	if (pipe(server_to_client) == -1) {
 		const char msg[] = "error: failed to create pipe\n";
 		write_all(STDERR_FILENO, msg, sizeof(msg) - 1);
 		exit(EXIT_FAILURE);
 	}
 
-	// NOTE: Spawn a new process
 	const pid_t child = fork();
 
 	switch (child) {
@@ -117,24 +110,21 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	} break;
 
-	case 0: { // NOTE: Child process
+	case 0: {
 		close(client_to_server[1]);
 		close(server_to_client[0]);
 
-		// NOTE: Redirect pipe1 to stdin
 		if (dup2(client_to_server[0], STDIN_FILENO) == -1) {
 			_exit(EXIT_FAILURE);
 		}
 		close(client_to_server[0]);
 
-		// NOTE: Redirect pipe2 to stdout
 		if (dup2(server_to_client[1], STDOUT_FILENO) == -1) {
 			_exit(EXIT_FAILURE);
 		}
 		close(server_to_client[1]);
 
 		{
-			// NOTE: Assemble full path to child binary
 			char path[1024];
 			uint32_t p_len = str_length(progpath);
 			uint32_t s_len = str_length(SERVER_PROGRAM_NAME);
@@ -159,7 +149,7 @@ int main(int argc, char **argv) {
 		}
 	} break;
 
-	default: { // NOTE: Parent process
+	default: { 
 		close(client_to_server[0]);
 		close(server_to_client[1]);
 

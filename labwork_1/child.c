@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-// NOTE: Write all bytes from buffer to target file descriptor
 static void write_all(int32_t fd, const char *buf, size_t size) {
 	size_t written = 0;
 	while (written < size) {
@@ -17,7 +16,6 @@ static void write_all(int32_t fd, const char *buf, size_t size) {
 	}
 }
 
-// NOTE: Custom float to ascii formatter without stdio
 static void float_to_str(float val, char *buf) {
 	if (val < 0.0f) {
 		*buf++ = '-';
@@ -45,7 +43,6 @@ static void float_to_str(float val, char *buf) {
 
 	*buf++ = '.';
 
-	// NOTE: Format fractional part with 6 digits precision
 	for (int32_t i = 0; i < 6; ++i) {
 		frac *= 10.0f;
 		int32_t digit = (int32_t)frac;
@@ -60,7 +57,6 @@ static void float_to_str(float val, char *buf) {
 	*buf = '\0';
 }
 
-// NOTE: Read single line from file descriptor
 static ssize_t read_line(int32_t fd, char *buf, size_t max_size) {
 	size_t idx = 0;
 	char ch;
@@ -91,10 +87,6 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-	// NOTE: `O_WRONLY` only enables file for writing
-	// NOTE: `O_CREAT` creates the requested file if absent
-	// NOTE: `O_TRUNC` empties the file prior to opening
-	// NOTE: `O_APPEND` subsequent writes are being appended instead of overwritten
 	int32_t file = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC | O_APPEND, 0600);
 	if (file == -1) {
 		const char msg[] = "error: failed to open requested file\n";
@@ -106,7 +98,6 @@ int main(int argc, char **argv) {
 	char buf[4096];
 	ssize_t bytes;
 
-	// NOTE: Read lines passed via client_to_server pipe
 	while ((bytes = read_line(STDIN_FILENO, buf, sizeof(buf))) >= 0) {
 		char *ptr = buf;
 		char *endptr = NULL;
@@ -114,7 +105,6 @@ int main(int argc, char **argv) {
 		int32_t count = 0;
 		bool div_by_zero = false;
 
-		// NOTE: Parse floating point numbers from line
 		while (*ptr != '\0') {
 			while (*ptr == ' ' || *ptr == '\t') {
 				++ptr;
@@ -131,7 +121,6 @@ int main(int argc, char **argv) {
 			if (count == 0) {
 				result = val;
 			} else {
-				// NOTE: Variant 4 division by zero check
 				if (val == 0.0f) {
 					div_by_zero = true;
 					break;
@@ -143,14 +132,13 @@ int main(int argc, char **argv) {
 		}
 
 		if (div_by_zero) {
-			// NOTE: Notify parent of division by zero and exit immediately
 			write(STDOUT_FILENO, "E", 1);
 			close(file);
 			exit(EXIT_FAILURE);
 		}
 
 		if (count > 0) {
-			// NOTE: Log computed result to file
+
 			char out_str[64];
 			float_to_str(result, out_str);
 
@@ -161,7 +149,6 @@ int main(int argc, char **argv) {
 			write_all(file, out_str, len);
 		}
 
-		// NOTE: Signal parent that line was processed successfully
 		write(STDOUT_FILENO, "K", 1);
 	}
 
